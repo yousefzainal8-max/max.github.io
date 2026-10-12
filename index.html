@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Port Terminal – Shift Cargo Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ============================================================
+   STEP 1 – PASTE YOUR FIREBASE CONFIG HERE (see README.md)
+   Leave apiKey empty to run in single-browser (offline) mode.
+   ============================================================ */
+window.FIREBASE_CONFIG = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+</script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f3f6fa;--card:#fff;--tx:#14213d;--mu:#64748b;--bd:#dbe3ee;--pri:#0b4f8a;--A:#2563eb;--B:#16a34a;--C:#f59e0b;--D:#8b5cf6;--ok:#16a34a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1520;--card:#162233;--tx:#e8eef7;--mu:#93a4bb;--bd:#26364d;--pri:#4da3ff}}
+:root[data-theme="dark"]{--bg:#0d1520;--card:#162233;--tx:#e8eef7;--mu:#93a4bb;--bd:#26364d;--pri:#4da3ff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:linear-gradient(135deg,#0b3a66,#0b4f8a);color:#fff;padding:14px 18px}
+header h1{margin:0;font-size:18px}header p{margin:2px 0 0;font-size:12px;opacity:.8}
+nav{display:flex;gap:6px;padding:10px 12px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5;overflow-x:auto}
+nav button{flex:1;min-width:110px;padding:11px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;font-weight:600;font-size:14px;cursor:pointer}
+nav button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+main{max-width:1100px;margin:0 auto;padding:4px 12px 40px}
+.page{display:none}.page.on{display:block}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+.card h2{margin:0 0 10px;font-size:15px}
+.grid{display:grid;gap:12px}
+.f{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+label{display:block;font-size:12px;font-weight:600;color:var(--mu);margin-bottom:3px}
+input,select,textarea{width:100%;padding:11px;font:inherit;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx)}
+textarea{min-height:70px}
+.go{width:100%;padding:15px;font-size:16px;font-weight:700;color:#fff;background:var(--ok);border:0;border-radius:10px;cursor:pointer}
+.btn{padding:11px 16px;font-weight:700;color:#fff;background:var(--pri);border:0;border-radius:9px;cursor:pointer;font-size:14px}
+.btn.s{background:transparent;color:var(--pri);border:1px solid var(--pri);padding:6px 12px;font-size:13px}
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px}
+.k{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;border-top:3px solid var(--pri)}
+.k b{display:block;font-size:24px}.k span{font-size:12px;color:var(--mu)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 6px;text-align:left;border-bottom:1px solid var(--bd)}th{font-size:12px;color:var(--mu)}
+td.n,th.n{text-align:right}
+.wrap{overflow-x:auto}
+.two{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.bar{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}
+.bar i{flex:0 0 130px;font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar div{flex:1;background:var(--bd);border-radius:6px;height:20px;overflow:hidden}
+.bar div span{display:block;height:100%;border-radius:6px}
+.bar em{flex:0 0 62px;text-align:right;font-style:normal;font-weight:600}
+.hr{display:flex;align-items:flex-end;gap:2px;height:130px}
+.hr div{flex:1;background:var(--pri);border-radius:3px 3px 0 0;min-height:1px}
+.hl{display:flex;justify-content:space-between;font-size:10px;color:var(--mu);margin-top:3px}
+.msg{padding:10px;border-radius:8px;margin-bottom:10px;background:#e8f7ee;color:#14532d;display:none}
+.note{font-size:12px;color:var(--mu)}.empty{color:var(--mu);padding:10px 0}
+dialog{border:1px solid var(--bd);border-radius:12px;background:var(--card);color:var(--tx);max-width:560px;width:94%;padding:16px}dialog::backdrop{background:#0008}
+#tvtitle,#tvclock,#tvx{display:none}
+body.tvon #tvtitle{display:inline;font-size:20px}body.tvon #tvclock{display:inline;font-size:16px}body.tvon #tvx{display:inline-block;margin-right:6px}body.tvon #tvbtn{display:none}
+body.tvon header,body.tvon nav{display:none}
+body.tvon{overflow:hidden}
+body.tvon main{max-width:none;padding:0}
+body.tvon #dash{position:fixed;inset:0;z-index:60;overflow:hidden;display:block;--bg:#0b1320;--card:#14202f;--tx:#e8eef7;--mu:#93a4bb;--bd:#26364d;--pri:#4da3ff;background:#0b1320;color:#e8eef7}
+body.tvon #tvw{position:absolute;width:1920px;height:1080px;transform-origin:0 0;padding:12px 18px;display:flex;flex-direction:column;gap:10px}
+body.tvon #tvw>div:first-child{margin:0!important}
+body.tvon .kpis{grid-template-columns:repeat(9,1fr);margin:0;gap:10px}
+body.tvon .k{padding:8px 12px}body.tvon .k b{font-size:34px;line-height:1.1}body.tvon .k span{font-size:13px}
+body.tvon .two{flex:1;min-height:0;grid-template-columns:repeat(5,1fr);grid-template-rows:1fr 1fr;gap:10px}
+body.tvon .card{margin:0;padding:10px 12px;overflow:hidden;min-height:0}
+body.tvon .card h2{font-size:15px;margin-bottom:6px}
+body.tvon table{font-size:12px}body.tvon th,body.tvon td{padding:3px 4px}
+body.tvon .bar{margin:3px 0;font-size:12px}body.tvon .bar div{height:14px}
+body.tvon .hr{height:150px}body.tvon .span2{grid-column:span 2}
+body.tvon #masterCard{height:250px;flex:none}
+body.tvon #mrow{display:flex;gap:16px;height:200px}
+body.tvon #pwrap{flex:0 0 480px;overflow:hidden}body.tvon #mwrap{flex:1;overflow:hidden;margin-top:0!important}
+body.tvon [data-edit],body.tvon [data-editv]{display:none}
+#live{display:none}
+@keyframes pl{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(52,211,153,.6)}50%{opacity:.55;box-shadow:0 0 0 8px rgba(52,211,153,0)}}
+body.tvon #live{display:inline-block;margin:0 14px;padding:3px 12px;border-radius:99px;background:#064e3b;color:#34d399;font-weight:800;font-size:15px;letter-spacing:.12em;animation:pl 1.8s infinite}
+body.tvon #tvtitle{font-size:32px;font-weight:800;letter-spacing:.04em;background:linear-gradient(90deg,#fff,#7cc4ff 60%,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent}
+body.tvon #tvclock{font-size:24px;font-weight:600;color:#cfe6ff}
+body.tvon #dash{background:radial-gradient(1100px 560px at 8% -10%,#14396a 0%,transparent 60%),radial-gradient(900px 500px at 100% 0,#0b4152 0%,transparent 55%),#070d18}
+body.tvon .card{background:linear-gradient(160deg,rgba(24,40,62,.96),rgba(12,22,38,.96));border:1px solid #2b4568;border-radius:14px;box-shadow:0 0 0 1px rgba(77,163,255,.08),0 8px 24px rgba(0,0,0,.5);position:relative;padding:14px 14px 10px}
+body.tvon .card::before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:linear-gradient(90deg,#4da3ff,#22d3ee,#34d399)}
+body.tvon .card h2{font-size:19px;letter-spacing:.07em;text-transform:uppercase;color:#7cc4ff;margin-bottom:8px}
+body.tvon .k{background:linear-gradient(160deg,#1b3a63,#0f2138);border:1px solid #2f5a94;border-top:4px solid #22d3ee;border-radius:14px;box-shadow:0 0 20px rgba(34,211,238,.14);padding:10px 14px}
+body.tvon .k b{font-size:40px;color:#fff;text-shadow:0 0 16px rgba(77,163,255,.55)}
+body.tvon .k span{font-size:15px;text-transform:uppercase;letter-spacing:.08em;color:#9fc3ee;font-weight:600}
+body.tvon table{font-size:15px}body.tvon th{font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:#8fb6e6}body.tvon th,body.tvon td{padding:5px 5px;border-bottom:1px solid #243a58}
+body.tvon #tMaster{font-size:14.5px}
+body.tvon .bar{margin:5px 0;font-size:14.5px}body.tvon .bar i{flex:0 0 150px}body.tvon .bar div{height:20px;background:#1c2f49}body.tvon .bar em{flex:0 0 84px;font-size:15px}
+body.tvon .bar div span{position:relative;box-shadow:0 0 12px rgba(77,163,255,.35)}body.tvon .bar div span::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.35),transparent 65%)}
+body.tvon .hr{height:190px;gap:3px}body.tvon .hr div{background:linear-gradient(180deg,#34d399,#22d3ee 40%,#4da3ff);box-shadow:0 0 8px rgba(34,211,238,.35)}body.tvon .hl{font-size:13px}
+body.tvon .tag{font-size:14px;padding:2px 11px}
+body.tvon table{font-size:16.5px}body.tvon #tMaster{font-size:15.5px}
+body.tvon .k b{font-size:44px}body.tvon .k span{font-size:16px}
+body.tvon .card h2{font-size:21px}
+body.tvon .bar{font-size:16px}body.tvon .bar i{flex:0 0 135px}body.tvon .bar em{font-size:16.5px;flex:0 0 80px}
+body.tvon .dsv{width:190px;height:190px}body.tvon .dl div{font-size:17px;margin:8px 0}body.tvon .dl span{font-size:14px}
+body.tvon .hr{height:125px}
+body.tvon #masterCard{height:215px}body.tvon #mrow{height:160px}
+body.tvon .pb{height:9px}
+.dn{display:flex;align-items:center;gap:12px}.dsv{width:150px;height:150px;flex:none}.dl div{margin:5px 0;font-size:14px}.dl i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px}.dl span{color:var(--mu);font-size:12px}
+.pb{height:8px;background:var(--bd);border-radius:5px;overflow:hidden;margin-bottom:2px;min-width:50px}.pb span{display:block;height:100%;background:linear-gradient(90deg,#22d3ee,#34d399)}
+.arr{display:flex;gap:6px}.arr select{flex:1}.arr .btn{padding:0 16px;font-size:16px}nav button.ar{flex:0 0 46px;min-width:46px;padding:11px 0}
+.tag{display:inline-block;padding:2px 9px;border-radius:99px;color:#fff;font-weight:700;font-size:12px}
+</style></head><body>
+<header><h1>⚓ Daily Shift Cargo Operations</h1><p>Port terminal · live shift reporting <span id="sync"></span></p></header>
+<nav><button class="ar" id="pprev" aria-label="Previous page">◀</button><button data-p="dash" class="on">Dashboard</button><button data-p="entry">Shift Entry</button><button data-p="arch">Reports Archive</button><button class="ar" id="pnext" aria-label="Next page">▶</button></nav>
+<main>
+<section id="entry" class="page">
+ <div class="msg" id="ok">✔ Shift update submitted and saved to the master table.</div>
+ <form id="frm" onsubmit="return false">
+ <div class="card"><h2>Vessel Information</h2><div class="grid f">
+  <div><label>Date</label><input type="date" id="date" required></div>
+  <div><label>Shift</label><div class="arr"><button type="button" class="btn s" id="sprev" aria-label="Previous shift">◀</button><select id="shift"><option>A</option><option>B</option><option>C</option><option>D</option></select><button type="button" class="btn s" id="snext" aria-label="Next shift">▶</button></div></div>
+  <div><label>Shift Period</label><select id="period"><option value="Morning">M – Morning</option><option value="Evening">E – Evening</option><option value="Night">N – Night</option></select></div>
+  <div><label>Select Vessel / Voyage (or choose New)</label><select id="vpick"></select></div>
+  <div><label>Vessel Name</label><input id="vessel" required></div>
+  <div><label>Voyage Number</label><input id="voyage" required></div>
+  <div><label>Berth Number</label><input id="berth" required></div>
+  <div><label>Purpose of Call</label><select id="purpose"><option>Discharge</option><option>Load</option><option>Load / Discharge</option><option>N/A</option></select></div>
+  <div><label>Cargo Commodity</label><input id="commodity" placeholder="e.g. Steel coils, Cement, Wheat"></div>
+  <div><label>Vessel Type</label><select id="vtype"><option>Livestock</option><option>General Cargo</option><option>RORO</option><option>Navy</option><option>Break Bulk</option><option>Bulk</option><option>RORO Package</option><option>Dhow</option><option>Naval</option><option>Tug</option><option>Cruise</option><option>Tug - Barge</option><option>Tank</option><option>Rig</option><option>Other</option></select></div>
+  <div id="vtoWrap" style="display:none"><label>Specify vessel type (Other)</label><input id="vtypeo" placeholder="Type of vessel"></div></div>
+  <div class="grid f" style="margin-top:12px"><div><label>Vessel Total Packages (manifest – entered once)</label><input type="number" inputmode="numeric" min="0" id="totpk"></div><div><label>Vessel Total MT (manifest – entered once)</label><input type="number" inputmode="decimal" min="0" step="0.01" id="totmt"></div></div>
+  <div id="balbox" style="margin-top:10px;font-size:14px"></div></div>
+ <div class="card"><h2>Cargo Handling Information</h2><div class="grid f">
+  <div><label>Packages Handled (Pkgs)</label><input type="number" inputmode="numeric" min="0" id="pkgs" required></div>
+  <div><label>Metric Tons Handled (MT)</label><input type="number" inputmode="decimal" min="0" step="0.01" id="mt" required></div>
+  <div><label>Cubic Meters Handled (CBM)</label><input type="number" inputmode="decimal" min="0" step="0.01" id="cbm"></div>
+  <div><label>Freight Tons (FT) – auto: larger of MT / CBM</label><input id="ft" readonly></div>
+  <div><label>Start Time</label><input type="time" id="st" required></div>
+  <div><label>End Time</label><input type="time" id="et" required></div></div>
+  <div style="margin-top:12px"><label>Remarks</label><textarea id="rem"></textarea></div></div>
+ <button class="go" id="submit">Submit Shift Update</button></form>
+</section>
+
+<section id="dash" class="page on">
+ <div id="tvw">
+ <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+  <b id="tvtitle">⚓ Port Terminal – Shift Cargo Operations</b><span id="live">● LIVE</span><span id="tvclock" class="note"></span>
+  <div><label style="display:inline;margin-right:6px">Period</label><select id="range" style="width:auto;display:inline-block"><option value="24h">Last 24 hours</option><option value="today">Today</option><option value="48h">Last 48 hours</option><option value="7d">Last 7 days</option><option value="all">All time</option></select> <span class="note" id="rnote"></span></div>
+  <span><button class="btn" id="tvbtn" style="margin-right:6px">📺 TV Mode</button><button class="btn s" id="tvx">✕ Exit TV</button><button class="btn" id="gen">Generate 24H Report</button></span></div>
+ <div class="kpis" id="kpis"></div>
+ <div class="two">
+  <div class="card"><h2>Shift Performance</h2><div class="wrap"><table id="tShift"></table></div><div id="bShift"></div></div>
+  <div id="best" hidden></div><table id="tBerth" hidden></table>
+  <div class="card"><h2>Vessel Performance</h2><div class="wrap"><table id="tVes"></table></div></div>
+  <div class="card span2"><h2>Vessel Balance (total vs handled, all shifts)</h2><div class="wrap"><table id="tBal"></table></div></div>
+  <div class="card"><h2>Purpose of Call (MT)</h2><div id="donut"></div></div>
+  <div class="card"><h2>Vessel Type Breakdown</h2><div id="cTypes"></div></div>
+  <div class="card"><h2>Packages by Shift</h2><div id="cPk"></div></div>
+  <div class="card"><h2>MT by Shift</h2><div id="cMt"></div></div>
+  <div class="card"><h2>MT by Vessel</h2><div id="cVes"></div></div>
+  <div class="card"><h2>Hourly Productivity (MT/hr, last 24h)</h2><div class="hr" id="hr"></div><div class="hl"><span>24h ago</span><span>now</span></div><div id="cum"></div></div>
+ </div>
+ <div class="card" id="masterCard"><h2>Master Table – Shift Submissions (newest date first)</h2><div id="mrow"><div class="wrap" id="pwrap"><table id="tPurp"></table></div><div class="wrap" id="mwrap" style="margin-top:14px"><table id="tMaster"></table></div></div></div>
+</div></section>
+
+<section id="arch" class="page">
+ <div class="card"><h2>Reports Archive</h2><p class="note">Each generated 24H report is archived. Open it to print or email the PDF.</p><div class="wrap"><table id="tArch"></table></div></div>
+</section>
+</main>
+<dialog id="dlg"></dialog>
+<script>
+const SC={A:'var(--A)',B:'var(--B)',C:'var(--C)',D:'var(--D)'},SH=['A','B','C','D'];
+const PER={Morning:'M (Morning)',Evening:'E (Evening)',Night:'N (Night)'},ft=r=>Math.max(+r.mt||0,+r.cbm||0);
+const CM=['Livestock','General Cargo','RORO','Navy','Break Bulk','Bulk','RORO Package','Dhow','Naval','Tug','Cruise','Tug - Barge','Tank','Rig','Other'];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const f0=n=>Math.round(n).toLocaleString(),f1=n=>(Math.round(n*10)/10).toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1});
+let shifts=[],reports=[],vessels=[],db=null,local={shifts:[],reports:[],vessels:[]};
+// ---------- storage layer (shared db, falls back to this browser) ----------
+function lsLoad(){try{local=JSON.parse(localStorage.getItem('cargo')||'')||local}catch(e){}local.vessels=local.vessels||[]}
+function lsSave(){try{localStorage.setItem('cargo',JSON.stringify(local))}catch(e){}}
+async function initStore(){
+ lsLoad();
+ try{const c=window.FIREBASE_CONFIG;if(c&&c.apiKey&&window.firebase){firebase.initializeApp(c);db=firebase.firestore()}else db=null}catch(e){console.error(e);db=null}
+ if(db){
+  $('sync').textContent='· shared database connected';
+  const conv=s=>(s.docs||[]).map(d=>({id:d.id,...(typeof d.data==='function'?d.data():d.data)}));
+  const err=e=>{console.error(e);$('sync').textContent='· database error: '+((e&&e.message)||e)};
+  const pull=async()=>{try{shifts=conv(await db.collection('shifts').get());reports=conv(await db.collection('reports').get());vessels=conv(await db.collection('vessels').get());render()}catch(e){err(e)}};
+  const sub=(name,cb)=>db.collection(name).onSnapshot(s=>{cb(conv(s));render()},err);
+  sub('shifts',a=>shifts=a);sub('reports',a=>reports=a);sub('vessels',a=>vessels=a);
+  pull();setInterval(pull,5000);
+ }else{
+  $('sync').textContent='· offline mode (saved in this browser only)';
+  shifts=local.shifts;reports=local.reports;vessels=local.vessels;render();
+ }
+}
+async function save(coll,rec){
+ rec.id=rec.id||'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+ if(db){await db.collection(coll).doc(rec.id).set(rec);const list=coll==='shifts'?shifts:coll==='vessels'?vessels:reports;const ix=list.findIndex(x=>x.id===rec.id);if(ix<0)list.push(rec);else list[ix]=rec;render()}
+ else{local[coll]=local[coll].filter(x=>x.id!==rec.id);local[coll].push(rec);lsSave();shifts=local.shifts;reports=local.reports;vessels=local.vessels;render()}
+}
+// ---------- time helpers ----------
+function span(r){ // returns {s,e} epoch ms
+ const [y,m,d]=r.date.split('-').map(Number),[sh,sm]=r.st.split(':').map(Number),[eh,em]=r.et.split(':').map(Number);
+ const s=new Date(y,m-1,d,sh,sm).getTime();let e=new Date(y,m-1,d,eh,em).getTime();if(e<=s)e+=864e5;return{s,e}}
+const hrs=r=>{const x=span(r);return(x.e-x.s)/36e5};
+let RANGE='24h';
+const isCont=r=>/^containers?$/i.test(String(r.commodity||r.cargo||'').trim());
+const RL=()=>({'24h':'24h','today':'Today','48h':'48h','7d':'7d','all':'All'})[RANGE];
+const last24=(now=Date.now(),rg=RANGE)=>{const t=new Date(now),sod=new Date(t.getFullYear(),t.getMonth(),t.getDate()).getTime();
+ const w={'24h':[now-864e5,now+864e5],'today':[sod,sod+864e5],'48h':[now-1728e5,now+864e5],'7d':[now-6048e5,now+864e5],'all':[-Infinity,Infinity]}[rg];
+ return shifts.filter(r=>{if(!(r.date&&r.st&&r.et))return false;if(isCont(r))return false;const x=span(r);return x.e>=w[0]&&x.s<=w[1]})};
+// ---------- aggregation ----------
+function agg(rows){
+ const by=(key,init)=>{const o={};rows.forEach(r=>{const k=key(r);(o[k]=o[k]||{cbm:0,ft:0,per:[],...init(r)});o[k].cbm+=+r.cbm||0;o[k].ft+=ft(r);if(r.period&&!o[k].per.includes(r.period))o[k].per.push(r.period);o[k].pk+=+r.pkgs||0;o[k].mt+=+r.mt||0;o[k].h+=hrs(r);o[k].n++});return o};
+ const sh=by(r=>r.shift,r=>({pk:0,mt:0,h:0,n:0}));SH.forEach(s=>sh[s]=sh[s]||{pk:0,mt:0,cbm:0,ft:0,per:[],h:0,n:0});
+ const sp=by(r=>r.shift+'|'+(r.period||''),r=>({shift:r.shift,period:r.period||'',pk:0,mt:0,h:0,n:0}));
+ const ves=Object.values(by(r=>r.vessel+'|'+r.voyage,r=>({vessel:r.vessel,voyage:r.voyage,pk:0,mt:0,h:0,n:0}))).sort((a,b)=>b.mt-a.mt);
+ const brt=Object.entries(by(r=>r.berth,r=>({pk:0,mt:0,h:0,n:0}))).map(([k,v])=>({berth:k,...v}));
+ const cg=Object.entries(by(r=>(r.vesselType||'Unspecified'),r=>({pk:0,mt:0,h:0,n:0}))).map(([k,v])=>({cargo:k,...v})).sort((a,b)=>b.mt-a.mt);
+ const pk=rows.reduce((a,r)=>a+(+r.pkgs||0),0),mt=rows.reduce((a,r)=>a+(+r.mt||0),0),h=rows.reduce((a,r)=>a+hrs(r),0),cbm=rows.reduce((a,r)=>a+(+r.cbm||0),0),fts=rows.reduce((a,r)=>a+ft(r),0);
+ const best=SH.filter(s=>sh[s].n).sort((a,b)=>sh[b].mt-sh[a].mt)[0]||null;
+ return{sp,sh,ves,brt,cg,pk,mt,cbm,fts,h,n:rows.length,best,avgShift:rows.length?mt/rows.length:0,mtHr:h?mt/h:0}}
+function bars(el,items,unit){ // items [{l,v,c}]
+ const mx=Math.max(1,...items.map(i=>i.v));
+ $(el).innerHTML=items.length?items.map(i=>`<div class="bar"><i title="${esc(i.l)}">${esc(i.l)}</i><div><span style="width:${i.v/mx*100}%;background:${i.c||'var(--pri)'}"></span></div><em>${f0(i.v)}${unit||''}</em></div>`).join(''):'<div class="empty">No data yet.</div>'}
+// ---------- render ----------
+function render(){
+ const now=Date.now(),rows=last24(now),a=agg(rows);
+ {const out=shifts.filter(r=>!isCont(r)).length-rows.length;$('rnote').textContent=out>0?out+' other entr'+(out>1?'ies are':'y is')+' outside this period – change Period to see '+(out>1?'them':'it'):''}
+ $('kpis').innerHTML=[['Active Vessels',a.ves.length],['Packages ('+RL()+')',f0(a.pk)],['MT ('+RL()+')',f1(a.mt)],['CBM ('+RL()+')',f1(a.cbm)],['FT ('+RL()+')',f1(a.fts)],['Shifts Submitted',a.n],['Avg MT / Shift',f1(a.avgShift)],['Avg MT / Hour',f1(a.mtHr)],['Best Shift',a.best||'–']].map(k=>`<div class="k"><b>${k[1]}</b><span>${k[0]}</span></div>`).join('');
+ $('tShift').innerHTML='<tr><th>Shift</th><th class="n">Packages</th><th class="n">MT</th><th class="n">CBM</th><th class="n">FT</th><th class="n">MT/hr</th></tr>'+SH.map(s=>`<tr><td><span class="tag" style="background:${SC[s]}">${s}</span>${a.sh[s].per.length?' – '+a.sh[s].per.map(p=>PER[p]).join(', '):''}</td><td class="n">${f0(a.sh[s].pk)}</td><td class="n">${f1(a.sh[s].mt)}</td><td class="n">${f1(a.sh[s].cbm)}</td><td class="n">${f1(a.sh[s].ft)}</td><td class="n">${a.sh[s].h?f1(a.sh[s].mt/a.sh[s].h):'–'}</td></tr>`).join('');
+ const lab=x=>x.shift+(x.period?' – '+(PER[x.period]||x.period):'');
+ const rows2=[];SH.forEach(s=>{const l=['Morning','Evening','Night'].map(p=>a.sp[s+'|'+p]).filter(Boolean);const u=a.sp[s+'|'];if(u)l.push(u);if(!l.length)l.push({shift:s,period:'',pk:0,mt:0,cbm:0,ft:0,h:0});rows2.push(...l)});
+ $('tShift').innerHTML='<tr><th>Shift</th><th class="n">Packages</th><th class="n">MT</th><th class="n">CBM</th><th class="n">FT</th><th class="n">MT/hr</th></tr>'+rows2.map(x=>'<tr><td><span class="tag" style="background:'+SC[x.shift]+'">'+esc(x.shift)+'</span> '+(x.period?'– '+esc(PER[x.period]||x.period):'')+'</td><td class="n">'+f0(x.pk)+'</td><td class="n">'+f1(x.mt)+'</td><td class="n">'+f1(x.cbm)+'</td><td class="n">'+f1(x.ft)+'</td><td class="n">'+(x.h?f1(x.mt/x.h):'–')+'</td></tr>').join('');
+ const sb=rows2.map(x=>({l:lab(x),v:x.mt,c:SC[x.shift]}));
+ $('bShift').innerHTML='';bars('bShift',sb,' MT');
+ bars('cPk',rows2.map(x=>({l:lab(x),v:x.pk,c:SC[x.shift]})));bars('cMt',sb,' MT');
+ bars('cVes',a.ves.map(v=>({l:v.vessel,v:v.mt})),' MT');
+ bars('cTypes',a.cg.map(c=>({l:c.cargo,v:c.mt,c:'var(--pri)'})),' MT');
+ $('best').innerHTML=a.best?`<p style="margin:0 0 8px">🏆 <b>Shift ${a.best}</b> leads with <b>${f1(a.sh[a.best].mt)} MT</b> (${f0(a.sh[a.best].pk)} pkgs)</p>`:'<div class="empty">No shifts submitted in the last 24h.</div>';
+ $('tBerth').innerHTML='<tr><th>Berth</th><th class="n">MT</th><th class="n">Hours</th><th class="n">MT/hr</th></tr>'+(a.brt.map(b=>`<tr><td>${esc(b.berth)}</td><td class="n">${f1(b.mt)}</td><td class="n">${f1(b.h)}</td><td class="n">${b.h?f1(b.mt/b.h):'–'}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No data</td></tr>');
+ $('tVes').innerHTML='<tr><th>Vessel</th><th>Voyage</th><th class="n">Packages</th><th class="n">MT</th><th class="n">CBM</th><th class="n">FT</th></tr>'+(a.ves.map(v=>`<tr><td>${esc(v.vessel)}</td><td>${esc(v.voyage)}</td><td class="n">${f0(v.pk)}</td><td class="n">${f1(v.mt)}</td><td class="n">${f1(v.cbm)}</td><td class="n">${f1(v.ft)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No data</td></tr>');
+ // hourly productivity: spread each entry's MT across the hours it covers
+ const hb=Array(24).fill(0),t0=now-864e5;
+ rows.forEach(r=>{const x=span(r),d=x.e-x.s,rate=(+r.mt||0)/(d/36e5);
+  for(let i=0;i<24;i++){const bs=t0+i*36e5,be=bs+36e5,ov=Math.min(be,x.e)-Math.max(bs,x.s);if(ov>0)hb[i]+=rate*ov/36e5}});
+ const mx=Math.max(1,...hb);
+ $('hr').innerHTML=hb.map((v,i)=>`<div title="${new Date(t0+i*36e5).getHours()}:00 – ${f1(v)} MT/hr" style="height:${v/mx*100}%"></div>`).join('');
+ const PO=['Discharge','Load','Load / Discharge','N/A','Not specified'],pp=r=>r.purpose||'Not specified',pg={};
+ rows.forEach(r=>{const g=pg[pp(r)]=pg[pp(r)]||{n:0,pk:0,mt:0,cbm:0,ft:0};g.n++;g.pk+=+r.pkgs||0;g.mt+=+r.mt||0;g.cbm+=+r.cbm||0;g.ft+=ft(r)});
+ const grp=k=>{const g=pg[k];return '<tr><td colspan="14" style="background:var(--bd);font-weight:700">'+esc(k)+' – '+g.n+' shift'+(g.n>1?'s':'')+' · '+f0(g.pk)+' Pkgs · '+f1(g.mt)+' MT · '+f1(g.cbm)+' CBM · '+f1(g.ft)+' FT</td></tr>'};
+ $('tPurp').innerHTML='<tr><th>Purpose of Call</th><th class="n">Shifts</th><th class="n">Packages</th><th class="n">MT</th><th class="n">CBM</th><th class="n">FT</th></tr>'+(PO.filter(k=>pg[k]).map(k=>'<tr><td><b>'+esc(k)+'</b></td><td class="n">'+pg[k].n+'</td><td class="n">'+f0(pg[k].pk)+'</td><td class="n">'+f1(pg[k].mt)+'</td><td class="n">'+f1(pg[k].cbm)+'</td><td class="n">'+f1(pg[k].ft)+'</td></tr>').join('')||'<tr><td colspan="6" class="empty">No data</td></tr>');
+ {const ks=PO.filter(k=>pg[k]),tot=ks.reduce((s,k)=>s+pg[k].mt,0),C=2*Math.PI*60,col={'Discharge':'#22d3ee','Load':'#f59e0b','Load / Discharge':'#a78bfa','N/A':'#94a3b8','Not specified':'#64748b'};let off=0,arcs='';
+  ks.forEach(k=>{const len=tot?pg[k].mt/tot*C:0;arcs+='<circle r="60" cx="90" cy="90" fill="none" stroke="'+col[k]+'" stroke-width="26" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 90 90)"/>';off+=len});
+  $('donut').innerHTML=ks.length?'<div class="dn"><svg viewBox="0 0 180 180" class="dsv"><circle r="60" cx="90" cy="90" fill="none" stroke="var(--bd)" stroke-width="26"/>'+arcs+'<text x="90" y="88" text-anchor="middle" font-size="22" font-weight="800" fill="currentColor">'+f0(tot)+'</text><text x="90" y="108" text-anchor="middle" font-size="11" fill="currentColor" opacity=".7">MT</text></svg><div class="dl">'+ks.map(k=>'<div><i style="background:'+col[k]+'"></i>'+esc(k)+' <b>'+f1(pg[k].mt)+'</b><br><span>'+pg[k].n+' shift'+(pg[k].n>1?'s':'')+' · '+f0(pg[k].pk)+' pkgs</span></div>').join('')+'</div></div>':'<div class="empty">No data yet.</div>';
+  let cu=0;const cs=hb.map(v=>cu+=v),cmx=Math.max(1,cu),pts=cs.map((v,i)=>(i*(240/23)).toFixed(1)+','+(68-v/cmx*64).toFixed(1)).join(' ');
+  $('cum').innerHTML='<div class="note" style="margin-top:8px">Cumulative MT · <b>'+f1(cu)+'</b></div><svg viewBox="0 0 240 70" preserveAspectRatio="none" style="width:100%;height:70px"><polygon points="0,70 '+pts+' 240,70" fill="rgba(34,211,238,.25)"/><polyline points="'+pts+'" fill="none" stroke="#22d3ee" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>'}
+ const m=[...rows].sort((x,y)=>span(y).e-span(x).e||(+y.submitted||0)-(+x.submitted||0));
+ $('tMaster').innerHTML='<tr><th>Date</th><th>Shift</th><th>Vessel</th><th>Voy</th><th>Berth</th><th>Purpose</th><th>Vessel Type</th><th>Commodity</th><th class="n">Pkgs</th><th class="n">MT</th><th class="n">CBM</th><th class="n">FT</th><th>Time</th><th>Remarks</th><th></th></tr>'+(m.map((r,i)=>`<tr${i===0?' style="background:rgba(22,163,74,.2)"':''}><td>${i===0?'🆕 ':''}${esc(r.date)}</td><td><span class="tag" style="background:${SC[r.shift]}">${esc(r.shift)}</span> ${esc(r.period?'– '+PER[r.period]:'')}</td><td>${esc(r.vessel)}</td><td>${esc(r.voyage)}</td><td>${esc(r.berth)}</td><td>${esc(r.purpose)}</td><td>${esc(r.vesselType)}</td><td>${esc(r.commodity||r.cargo)}</td><td class="n">${f0(r.pkgs)}</td><td class="n">${f1(+r.mt)}</td><td class="n">${f1(+r.cbm||0)}</td><td class="n">${f1(ft(r))}</td><td>${esc(r.st)}–${esc(r.et)}</td><td>${esc(r.rem)}</td><td><button class="btn s" data-edit="${esc(r.id)}">✎ Edit</button></td></tr>`).join('')||'<tr><td colspan="15" class="empty">No submissions in the last 24 hours.</td></tr>');
+ $('tBal').innerHTML='<tr><th>Vessel</th><th>Voyage</th><th class="n">Total Pkgs</th><th class="n">Total MT</th><th class="n">Bal Pkgs</th><th class="n">Bal MT</th><th class="n">Done</th><th></th></tr>'+(vessels.map(v=>{const b=bal(v.vessel,v.voyage),pc=b.totMt?Math.min(100,b.dm/b.totMt*100):0;return '<tr><td>'+esc(v.vessel)+'</td><td>'+esc(v.voyage)+'</td><td class="n">'+f0(b.totPk)+'</td><td class="n">'+f1(b.totMt)+'</td><td class="n" style="color:'+(b.bp<0?'#dc2626':'inherit')+'"><b>'+f0(b.bp)+'</b></td><td class="n" style="color:'+(b.bm<0?'#dc2626':'inherit')+'"><b>'+f1(b.bm)+'</b></td><td class="n">'+'<div class="pb"><span style="width:'+pc+'%"></span></div>'+f0(pc)+'%</td><td class="n"><button class="btn s" data-editv="'+esc(v.id)+'">✎ Edit</button></td></tr>'}).join('')||'<tr><td colspan="8" class="empty">No vessel manifests yet.</td></tr>');
+ fillPick();fillBal();
+ const ar=[...reports].sort((x,y)=>y.ts-x.ts);
+ $('tArch').innerHTML='<tr><th>Generated</th><th class="n">Vessels</th><th class="n">Packages</th><th class="n">MT</th><th></th></tr>'+(ar.map(r=>`<tr><td>${esc(new Date(r.ts).toLocaleString())}</td><td class="n">${r.vessels}</td><td class="n">${f0(r.pk)}</td><td class="n">${f1(r.mt)}</td><td class="n"><button class="btn s" data-open="${esc(r.id)}">Open PDF</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">No reports generated yet.</td></tr>');
+}
+// ---------- PDF ----------
+function buildPdf(snap){
+ const {jsPDF}=window.jspdf,d=new jsPDF({unit:'pt',format:'a4'}),W=595,M=40;let y=0;
+ d.setFillColor(11,79,138);d.rect(0,0,W,70,'F');d.setTextColor(255);d.setFont('helvetica','bold');d.setFontSize(18);
+ d.text('Daily Cargo Handling Report (Last 24 Hours)',M,36);d.setFontSize(10);d.setFont('helvetica','normal');
+ d.text('Report date & time: '+new Date(snap.ts).toLocaleString(),M,55);d.setTextColor(20,33,61);y=98;
+ const H=t=>{if(y>740){d.addPage();y=50}d.setFont('helvetica','bold');d.setFontSize(12);d.setTextColor(11,79,138);d.text(t,M,y);y+=8;d.setDrawColor(11,79,138);d.line(M,y,W-M,y);y+=16;d.setTextColor(20,33,61)};
+ const T=(cols,rows,xs)=>{d.setFontSize(10);d.setFont('helvetica','bold');cols.forEach((c,i)=>d.text(c,xs[i],y,{align:i?'right':'left'}));y+=6;d.setDrawColor(200);d.line(M,y,W-M,y);y+=13;d.setFont('helvetica','normal');
+  rows.forEach(r=>{if(y>780){d.addPage();y=50}r.forEach((c,i)=>d.text(String(c),xs[i],y,{align:i?'right':'left'}));y+=15});y+=12};
+ H('Summary');T(['Metric','Value'],[['Total Vessels',snap.vessels],['Total Packages',f0(snap.pk)],['Total MT',f1(snap.mt)],['Total CBM',f1(snap.cbm||0)],['Total FT',f1(snap.fts||0)],['Total Shifts',snap.n],['Average MT / Hour',f1(snap.mtHr)],['Best Performing Shift',snap.best||'–']],[M,W-M]);
+ H('Vessel Summary');T(['Vessel / Voyage','Packages','MT','CBM','FT','Balance MT'],snap.ves.map(v=>[(v.vessel+' / '+v.voyage).slice(0,30),f0(v.pk),f1(v.mt),f1(v.cbm||0),f1(v.ft||0),typeof v.bm==='number'?f1(v.bm):'–']),[M,290,350,410,470,W-M]);
+ H('Shift Summary');T(['Shift','Packages','MT','CBM','FT'],SH.map(s=>{const x=snap.sh[s];return[s+(x.per&&x.per.length?' - '+x.per.map(p=>PER[p]).join(', '):''),f0(x.pk),f1(x.mt),f1(x.cbm||0),f1(x.ft||0)]}),[M,330,400,480,W-M]);
+ H('Cargo Summary');T(['Vessel Type','Packages','MT'],snap.cg.map(c=>[c.cargo,f0(c.pk),f1(c.mt)]),[M,420,W-M]);
+ H('Berth Productivity');T(['Berth','MT','MT/hr'],snap.brt.map(b=>[b.berth,f1(b.mt),b.h?f1(b.mt/b.h):'–']),[M,420,W-M]);
+ d.setFontSize(9);d.setTextColor(100);d.text('Generated: '+new Date(snap.ts).toLocaleString(),M,815);
+ return d.output('blob')}
+async function deliver(snap){
+ if(!window.jspdf){alert('PDF library failed to load.');return}
+ const blob=buildPdf(snap);
+ const name='Cargo-24H-Report-'+new Date(snap.ts).toISOString().slice(0,16).replace(/[:T]/g,'-')+'.pdf';
+ try{const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();window.open(url,'_blank')}catch(e){alert('Could not save PDF: '+(e&&e.message))}}
+$('gen').onclick=async()=>{if(!(await askPw()))return;
+ const now=Date.now(),a=agg(last24(now,'24h'));
+ const snap={ts:now,vessels:a.ves.length,pk:a.pk,mt:a.mt,cbm:a.cbm,fts:a.fts,n:a.n,mtHr:a.mtHr,best:a.best,sh:a.sh,ves:a.ves.map(v=>({...v,bm:bal(v.vessel,v.voyage).bm})),cg:a.cg,brt:a.brt};
+ await save('reports',snap);await deliver(snap)};
+document.addEventListener('click',e=>{const id=e.target.dataset&&e.target.dataset.open;if(id){const r=reports.find(x=>x.id===id);if(r)deliver(r)}});
+// ---------- manifest & balance ----------
+const vkey=(a,b)=>(String(a).trim()+'__'+String(b).trim()).replace(/[^A-Za-z0-9_.-]/g,'_').toLowerCase().slice(0,150);
+const bal=(ves,voy)=>{const k=vkey(ves,voy),m=vessels.find(x=>x.id===k);let dp=0,dm=0;shifts.forEach(r=>{if(vkey(r.vessel,r.voyage)===k){dp+=+r.pkgs||0;dm+=+r.mt||0}});return m?{totPk:+m.totPk,totMt:+m.totMt,dp,dm,bp:m.totPk-dp,bm:m.totMt-dm}:{dp,dm}};
+function fillBal(){const v=$('vessel').value.trim(),y=$('voyage').value.trim(),box=$('balbox');
+ if(!v||!y){box.textContent='';return}
+ const b=bal(v,y),known=b.totPk!==undefined,was=$('totpk').readOnly;
+ $('totpk').readOnly=$('totmt').readOnly=known;
+ if(known){$('totpk').value=b.totPk;$('totmt').value=b.totMt}else if(was){$('totpk').value='';$('totmt').value=''}
+ const tp=+$('totpk').value||0,tm=+$('totmt').value||0,cp=+$('pkgs').value||0,cm=+$('mt').value||0,rp=tp-b.dp-cp,rm=tm-b.dm-cm;
+ box.innerHTML=(known?'🔒 Manifest totals locked for this vessel/voyage.':'New vessel/voyage – enter the manifest totals once.')+'<br><b>Balance after this entry:</b> <span style="color:'+(rp<0||rm<0?'#dc2626':'inherit')+'"><b>'+f0(rp)+' Pkgs · '+f1(rm)+' MT</b></span> <span class="note">(already handled: '+f0(b.dp)+' Pkgs · '+f1(b.dm)+' MT)</span>'}
+['vessel','voyage','pkgs','mt','totpk','totmt'].forEach(i=>$(i).addEventListener('input',fillBal));
+function fillPick(){const p=$('vpick'),cur=p.value,h='<option value="">➕ New vessel / voyage</option>'+vessels.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.vessel)+' — Voy '+esc(v.voyage)+'</option>').join('');if(p.dataset.h!==h){p.innerHTML=h;p.dataset.h=h;p.value=cur}}
+$('vpick').onchange=()=>{const v=vessels.find(x=>x.id===$('vpick').value);$('vessel').value=v?v.vessel:'';$('voyage').value=v?v.voyage:'';fillBal();if(!v)$('vessel').focus()};
+const stepShift=d=>{const s=$('shift');s.selectedIndex=(s.selectedIndex+d+s.options.length)%s.options.length};
+$('sprev').onclick=()=>stepShift(-1);$('snext').onclick=()=>stepShift(1);
+const PG=['dash','entry','arch'],stepPage=d=>{const i=PG.findIndex(p=>$(p).classList.contains('on'));document.querySelector('nav button[data-p='+PG[(i+d+3)%3]+']').click();scrollTo({top:0})};
+$('pprev').onclick=()=>stepPage(-1);$('pnext').onclick=()=>stepPage(1);
+['mt','cbm'].forEach(i=>$(i).addEventListener('input',()=>{$('ft').value=Math.max(+$('mt').value||0,+$('cbm').value||0)||''}));
+// ---------- form ----------
+const today=new Date();$('date').value=new Date(today-today.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+$('submit').onclick=async()=>{
+ const g=id=>$(id).value.trim(),req=['date','vessel','voyage','berth','pkgs','mt','st','et','totpk','totmt'];
+ if(req.some(i=>!g(i))){$('frm').reportValidity();return}
+ const rec={date:g('date'),shift:g('shift'),vessel:g('vessel'),voyage:g('voyage'),berth:g('berth'),purpose:g('purpose'),commodity:g('commodity'),period:g('period'),vesselType:(g('vtype')==='Other'&&g('vtypeo'))?g('vtypeo'):g('vtype'),cbm:+g('cbm')||0,ft:Math.max(+g('mt')||0,+g('cbm')||0),pkgs:+g('pkgs'),mt:+g('mt'),st:g('st'),et:g('et'),rem:g('rem'),submitted:Date.now()};
+ try{const b=bal(rec.vessel,rec.voyage);
+  if(b.totPk===undefined)await save('vessels',{id:vkey(rec.vessel,rec.voyage),vessel:rec.vessel,voyage:rec.voyage,totPk:+g('totpk'),totMt:+g('totmt')});
+  else if((b.totPk-b.dp-rec.pkgs<0||b.totMt-b.dm-rec.mt<0)&&!confirm('This entry is more than the remaining balance. Submit anyway?'))return;
+  await save('shifts',rec);}catch(e){alert('Save failed: '+(e&&e.message||e));return}
+ ['vessel','voyage','berth','vtypeo','commodity','pkgs','mt','cbm','ft','st','et','rem','totpk','totmt'].forEach(i=>$(i).value='');$('vpick').value='';syncVt();$('totpk').readOnly=$('totmt').readOnly=false;fillBal();
+ $('ok').style.display='block';setTimeout(()=>$('ok').style.display='none',4000);document.querySelector('nav button[data-p=dash]').click();scrollTo({top:0})};
+document.querySelectorAll('nav button[data-p]').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,.page').forEach(x=>x.classList.remove('on'));b.classList.add('on');$(b.dataset.p).classList.add('on');render()});
+function dlgOpen(title,fields,onSave,onDel){
+ const d=$('dlg');
+ d.innerHTML='<h2 style="margin:0 0 10px;font-size:16px">'+esc(title)+'</h2><div class="grid f">'+fields.map(f=>'<div><label>'+esc(f.l)+'</label>'+(f.opts?'<select data-k="'+f.k+'">'+f.opts.map(o=>'<option'+(o===f.v?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>':'<input data-k="'+f.k+'" type="'+(f.t||'text')+'"'+(f.t==='number'?' step="any"':'')+(f.ro?' readonly':'')+' value="'+esc(f.v)+'">')+'</div>').join('')+'</div><div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn" id="dSave">Save</button><button class="btn s" id="dCancel">Cancel</button>'+(onDel?'<button class="btn s" id="dDel" style="margin-left:auto;color:#dc2626;border-color:#dc2626">Delete</button>':'')+'</div>';
+ d.showModal();
+ const val=()=>{const o={};d.querySelectorAll('[data-k]').forEach(e=>o[e.dataset.k]=e.value);return o};
+ $('dCancel').onclick=()=>d.close();
+ $('dSave').onclick=async()=>{try{await onSave(val());d.close()}catch(e){alert('Save failed: '+(e&&e.message||e))}};
+ if(onDel)$('dDel').onclick=async()=>{if(!confirm('Delete permanently?'))return;try{await onDel();d.close()}catch(e){alert('Delete failed: '+(e&&e.message||e))}};
+}
+async function del(coll,id){
+ if(db)await db.collection(coll).doc(id).delete();else{local[coll]=local[coll].filter(x=>x.id!==id);lsSave()}
+ const f=l=>l.filter(x=>x.id!==id);if(coll==='shifts')shifts=f(shifts);else if(coll==='vessels')vessels=f(vessels);render()}
+const PWH='825609c692c2d5d07dd378944f0ebecb88306b2400d7727560b28f0b355ae8ed';
+async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function askPw(){return new Promise(res=>{const d=$('dlg');
+ d.innerHTML='<h2 style="margin:0 0 10px;font-size:16px">🔒 Enter password to edit</h2><input type="password" id="pw" autocomplete="off" placeholder="Password"><div id="pwe" style="color:#dc2626;font-size:13px;min-height:18px;margin-top:6px"></div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn" id="pwOk">Unlock</button><button class="btn s" id="pwNo">Cancel</button></div>';
+ d.showModal();const pw=$('pw');pw.focus();
+ const go=async()=>{let ok=false;try{ok=(await sha(pw.value))===PWH}catch(e){}if(ok){d.oncancel=null;d.close();res(true)}else{$('pwe').textContent='Incorrect password';pw.value='';pw.focus()}};
+ $('pwOk').onclick=go;pw.onkeydown=e=>{if(e.key==='Enter')go()};$('pwNo').onclick=()=>{d.close();res(false)};d.oncancel=()=>res(false)})}
+document.addEventListener('click',async e=>{const t=e.target,ed=t.dataset&&t.dataset.edit,ev=t.dataset&&t.dataset.editv;
+ if((ed||ev)&&!(await askPw()))return;
+ if(ed){const r=shifts.find(x=>x.id===ed);if(!r)return;
+  dlgOpen('Edit shift entry',[{k:'date',l:'Date',t:'date',v:r.date},{k:'shift',l:'Shift',v:r.shift,opts:SH},{k:'period',l:'Shift Period',v:r.period||'Morning',opts:['Morning','Evening','Night']},{k:'vessel',l:'Vessel',v:r.vessel},{k:'voyage',l:'Voyage',v:r.voyage},{k:'berth',l:'Berth',v:r.berth},{k:'purpose',l:'Purpose of Call',v:r.purpose||'Discharge',opts:['Discharge','Load','Load / Discharge','N/A']},{k:'commodity',l:'Commodity',v:r.commodity||r.cargo||''},{k:'vesselType',l:'Vessel Type',v:r.vesselType||'General Cargo',opts:[...new Set([...CM,r.vesselType||''])].filter(Boolean)},{k:'pkgs',l:'Packages',t:'number',v:r.pkgs},{k:'mt',l:'MT',t:'number',v:r.mt},{k:'cbm',l:'CBM',t:'number',v:r.cbm||0},{k:'st',l:'Start',t:'time',v:r.st},{k:'et',l:'End',t:'time',v:r.et},{k:'rem',l:'Remarks',v:r.rem||''}],
+  async v=>{const n={...r,...v,pkgs:+v.pkgs||0,mt:+v.mt||0,cbm:+v.cbm||0};n.ft=Math.max(n.mt,n.cbm);await save('shifts',n)},()=>del('shifts',r.id))}
+ if(ev){const v0=vessels.find(x=>x.id===ev);if(!v0)return;
+  dlgOpen('Edit vessel manifest',[{k:'vessel',l:'Vessel',v:v0.vessel,ro:true},{k:'voyage',l:'Voyage',v:v0.voyage,ro:true},{k:'totPk',l:'Total Packages',t:'number',v:v0.totPk},{k:'totMt',l:'Total MT',t:'number',v:v0.totMt}],
+  async v=>{await save('vessels',{...v0,totPk:+v.totPk||0,totMt:+v.totMt||0})},()=>del('vessels',v0.id))}});
+function fitTV(){const w=$('tvw');if(!document.body.classList.contains('tvon')){w.style.transform=w.style.left=w.style.top='';return}
+ const s=Math.min(innerWidth/1920,innerHeight/1080);w.style.transform='scale('+s+')';w.style.left=(innerWidth-1920*s)/2+'px';w.style.top=(innerHeight-1080*s)/2+'px'}
+async function tv(on){document.body.classList.toggle('tvon',on);
+ if(on){try{await document.documentElement.requestFullscreen()}catch(e){}}else if(document.fullscreenElement){try{await document.exitFullscreen()}catch(e){}}
+ fitTV();render()}
+$('tvbtn').onclick=()=>tv(true);$('tvx').onclick=()=>tv(false);
+addEventListener('resize',fitTV);
+addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA/.test((e.target.tagName||'')))return;if(e.key==='Escape')tv(false);if(e.key==='t'||e.key==='T')tv(!document.body.classList.contains('tvon'))});
+setInterval(()=>{$('tvclock').textContent=new Date().toLocaleString()},1000);
+setInterval(()=>{if(!document.body.classList.contains('tvon'))return;const w=$('mwrap');if(w.scrollHeight<=w.clientHeight+2)return;w.scrollTop=(w.scrollTop>=w.scrollHeight-w.clientHeight-1)?0:w.scrollTop+1},60);
+function syncVt(){$('vtoWrap').style.display=$('vtype').value==='Other'?'block':'none'}
+$('vtype').onchange=syncVt;
+$('range').onchange=()=>{RANGE=$('range').value;render()};
+setInterval(render,60000);
+initStore();render();
+</script></body></html>
